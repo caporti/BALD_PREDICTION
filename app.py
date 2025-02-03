@@ -9,6 +9,7 @@ st.write("Hello World EDEM students from Conchita")
 st.write("Welcome to our streamlit sessions")
 
 st.write(123455154125151513)
+st.write('Inglés o español?')
 
 st.markdown("### eueuee")
 
