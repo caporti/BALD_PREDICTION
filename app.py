@@ -1,137 +1,209 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import GradientBoostingClassifier
-import joblib
+import seaborn as sns
+import matplotlib.pyplot as plt
+import plotly.express as px
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.decomposition import PCA
+	
 
-# Cargar el modelo y el escalador (si los tienes guardados)
-# gb = joblib.load('modelo_gb.pkl')
-# sc = joblib.load('escalador.pkl')
+# Display
+st.write("Hello World EDEM students from Conchita")
+st.write("Welcome to our streamlit sessions")
+st.write(123455154125151513)
+st.write('Inglés o español?')
+st.markdown("### eueuee")
+st.balloons()
 
-# Función para preprocesar los datos de entrada
-def preprocesar_datos(datos):
-    # Mapear valores categóricos
-    map_stres = {"Low": 0, "Moderate": 1, "High": 2}
-    datos["Stress"] = datos["Stress"].map(map_stres)
+# Cargar datos
+# df = pd.read_csv('./Predict Hair Fall.csv') # Si queremos que solo se haga con ese csv
+# st.dataframe(df.head(6))
 
-    map_yes_no = {"Yes": 1, "No": 0}
-    columnas_yes_no = ["Genetics", "Hormonal Changes", "Poor Hair Care Habits ", "Environmental Factors", "Smoking", "Weight Loss "]
-    for col in columnas_yes_no:
-        datos[col] = datos[col].map(map_yes_no)
+uploaded_file = st.file_uploader("Carga un archivo CSV", type=["csv"])
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    st.write("Archivo cargado correctamente.")
+    st.dataframe(df.head(5))
 
-    # Definir funciones de asignación
-    def asignar_grupo(valor, diccionario):
-        for grupo, valores in diccionario.items():
-            if valor in valores:
-                return grupo
-        return "Otros"
 
-    grupos_condiciones = {
-        "Enfermedades inflamatorias de la piel": ["Eczema", "Psoriasis", "Dermatitis", "Seborrheic Dermatitis"],
-        "Infecciones": ["Ringworm", "Scalp Infection"],
-        "Trastornos del cabello": ["Alopecia Areata", "Androgenetic Alopecia"],
-        "Problemas sistémicos": ["Thyroid Problems"],
-        "Término genérico": ["Dermatosis"],
-        "No Data": ["No Data"]
-    }
-    datos["Grupo_Condiciones"] = datos["Medical Conditions"].apply(lambda x: asignar_grupo(x, grupos_condiciones))
-    datos.drop("Medical Conditions", axis=1, inplace=True)
 
-    grupos_deficiencias = {
-        "Vitaminas": ["Vitamin A Deficiency", "Vitamin D Deficiency", "Biotin Deficiency", "Vitamin E deficiency"],
-        "Minerales": ["Magnesium deficiency", "Selenium deficiency", "Zinc Deficiency"],
-        "Macronutrientes": ["Protein deficiency"],
-        "Ácidos grasos": ["Omega-3 fatty acids"],
-        "Sin deficiencia": ["No Data", "Iron deficiency"]
-    }
-    datos["Grupo Deficiencias"] = datos["Nutritional Deficiencies "].apply(lambda x: asignar_grupo(x, grupos_deficiencias))
-    datos.drop("Nutritional Deficiencies ", axis=1, inplace=True)
+# ---------------------- Gráfico de columna categórica ----------------------
+# Visualización de la distribución de una columna categórica con colores y etiquetas
+# Visualización de la distribución de una columna categórica con gráficos
+st.title("Visualización de Distribución de una Columna")
 
-    grupos_medicamentos = {
-        "Antibióticos/Antifúngicos": ["Antibiotics", "Antifungal Cream"],
-        "Enfermedades crónicas": ["Blood Pressure Medication", "Heart Medication"],
-        "Inmunológicos": ["Immunomodulators", "Steroids"],
-        "Salud mental": ["Antidepressants"],
-        "Tratamientos para caída de cabello": ["Rogaine", "Accutane"],
-        "Quimioterapia": ["Chemotherapy"],
-        "No Data": ["No Data"]
-    }
-    datos["Grupo Medicamentos"] = datos["Medications & Treatments"].apply(lambda x: asignar_grupo(x, grupos_medicamentos))
-    datos.drop("Medications & Treatments", axis=1, inplace=True)
+# Seleccionar columna categórica
+categorical_columns = df.select_dtypes(include=['object', 'category']).columns.tolist()
+selected_column_1 = st.selectbox("Selecciona una columna categórica:", categorical_columns, key="categorical_select_1")
 
-    # Agrupar edad
-    bins = [0, 25, 35, 45, 60]
-    labels = [0, 1, 2, 3]
-    datos['Age_group'] = pd.cut(datos['Age'], bins=bins, labels=labels, right=False)
-    datos.drop("Age", axis=1, inplace=True)
+# Graficar la distribución de la columna seleccionada como un gráfico de barras
+if selected_column_1:
+    # Establecer el estilo para el gráfico de barras
+    sns.set_style("darkgrid")
+    
+    # Crear gráfico de barras
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax = sns.countplot(x=df[selected_column_1], ax=ax, palette='Set2')  # Usar una paleta de colores, por ejemplo 'Set2'
+    
+    # Añadir etiquetas a las barras
+    for bars in ax.containers:
+        ax.bar_label(bars, fontsize=9, fontweight='bold', color='black')
 
-    # Aplicar One-Hot Encoding
-    columnas_categoricas = ["Grupo_Condiciones", "Grupo Deficiencias", "Grupo Medicamentos"]
-    datos = pd.get_dummies(datos, columns=columnas_categoricas)
+    # Rotar etiquetas si es necesario
+    plt.xticks(rotation=45)
+    
+    # Mostrar el gráfico de barras
+    st.pyplot(fig)
 
-    # Asegurar que las columnas coincidan con el conjunto de entrenamiento
-    columnas_modelo = [
-        'Genetics', 'Hormonal Changes', 'Stress', 'Poor Hair Care Habits ', 
-        'Environmental Factors', 'Smoking', 'Weight Loss ', 'Age_group',
-        'Grupo_Condiciones_Enfermedades inflamatorias de la piel', 'Grupo_Condiciones_Infecciones',
-        'Grupo_Condiciones_No Data', 'Grupo_Condiciones_Problemas sistémicos',
-        'Grupo_Condiciones_Trastornos del cabello', 'Grupo_Condiciones_Término genérico',
-        'Grupo Deficiencias_Macronutrientes', 'Grupo Deficiencias_Minerales',
-        'Grupo Deficiencias_Sin deficiencia', 'Grupo Deficiencias_Vitaminas',
-        'Grupo Deficiencias_Ácidos grasos', 'Grupo Medicamentos_Antibióticos/Antifúngicos',
-        'Grupo Medicamentos_Enfermedades crónicas', 'Grupo Medicamentos_Inmunológicos',
-        'Grupo Medicamentos_No Data', 'Grupo Medicamentos_Quimioterapia',
-        'Grupo Medicamentos_Salud mental', 'Grupo Medicamentos_Tratamientos para caída de cabello'
-    ]
-    datos = datos.reindex(columns=columnas_modelo, fill_value=0)
+    # Graficar la distribución de la columna seleccionada como un gráfico de pastel
+    label_counts = df[selected_column_1].value_counts()
 
-    # Escalar los datos
-    datos = sc.transform(datos)
-    return datos
+    fig, ax = plt.subplots()
+    ax.pie(label_counts, labels=label_counts.index, autopct='%1.1f%%', startangle=90, 
+           colors=sns.color_palette("Set2", len(label_counts)))
+    ax.set_title(f'Distribución de la columna: {selected_column_1}')
 
-# Interfaz de Streamlit
-st.title("Predicción de Pérdida de Cabello")
+    # Mostrar el gráfico de pastel
+    st.pyplot(fig)
 
-# Crear un formulario para que el usuario ingrese datos
-st.header("Ingresa los datos para predecir")
+    # Mostrar los conteos de cada etiqueta
+    st.write(f"Conteos de la columna {selected_column_1}:")
+    st.write(label_counts)
 
-# Campos de entrada
-stress = st.selectbox("Nivel de estrés", ["Low", "Moderate", "High"])
-age = st.number_input("Edad", min_value=0, max_value=100, value=30)
-medical_conditions = st.selectbox("Condiciones médicas", ["Eczema", "Psoriasis", "Thyroid Problems", "No Data"])
-nutritional_deficiencies = st.selectbox("Deficiencias nutricionales", ["Vitamin D Deficiency", "Iron deficiency", "No Data"])
-medications = st.selectbox("Medicamentos y tratamientos", ["Rogaine", "Antibiotics", "No Data"])
-genetics = st.selectbox("Genética", ["Yes", "No"])
-hormonal_changes = st.selectbox("Cambios hormonales", ["Yes", "No"])
-poor_hair_care = st.selectbox("Malos hábitos de cuidado del cabello", ["Yes", "No"])
-environmental_factors = st.selectbox("Factores ambientales", ["Yes", "No"])
-smoking = st.selectbox("Fumar", ["Yes", "No"])
-weight_loss = st.selectbox("Pérdida de peso", ["Yes", "No"])
 
-# Botón para realizar la predicción
-if st.button("Predecir"):
-    # Crear un DataFrame con los datos ingresados
-    datos_usuario = pd.DataFrame({
-        "Stress": [stress],
-        "Age": [age],
-        "Medical Conditions": [medical_conditions],
-        "Nutritional Deficiencies ": [nutritional_deficiencies],
-        "Medications & Treatments": [medications],
-        "Genetics": [genetics],
-        "Hormonal Changes": [hormonal_changes],
-        "Poor Hair Care Habits ": [poor_hair_care],
-        "Environmental Factors": [environmental_factors],
-        "Smoking": [smoking],
-        "Weight Loss ": [weight_loss]
-    })
 
-    # Preprocesar los datos
-    datos_procesados = preprocesar_datos(datos_usuario)
+# ---------------------- KDE + Histograma con Seaborn ----------------------
+st.title("Ver distribución de edades")
 
-    # Realizar la predicción
-    prediccion = gb.predict(datos_procesados)
+numerical_columns = df.select_dtypes(include=['int', 'float']).columns.tolist()
+selected_numerical = st.selectbox("Selecciona una columna numérica:", numerical_columns, 
+                                  index=numerical_columns.index('Age') if 'Age' in numerical_columns else 0, 
+                                  key="numerical_select")
 
-    # Mostrar el resultado
-    st.success(f"La predicción es: {'Pérdida de cabello' if prediccion[0] == 1 else 'No pérdida de cabello'}")
+if st.button("Mostrar distribución"):
+    fig, ax = plt.subplots(figsize=(5, 3.2))
+    sns.kdeplot(df, x=selected_numerical, fill=True, color='green', ax=ax)
+    sns.histplot(df, x=selected_numerical, stat='density', fill=False, color='green', ax=ax)
+    plt.title(f"{selected_numerical}", color='black')
+    st.pyplot(fig)
 
+# ---------------------- Histograma interactivo con Plotly ----------------------
+st.title("Ver distribución de edades (Interactivo)")
+
+selected_numerical_plotly = st.selectbox("Selecciona una columna numérica:", numerical_columns, 
+                                         index=numerical_columns.index('Age') if 'Age' in numerical_columns else 0, 
+                                         key="numerical_select_plotly")
+
+if st.button("Mostrar distribución interactiva"):
+    fig = px.histogram(df, x=selected_numerical_plotly, marginal="rug", nbins=30, opacity=0.7, color_discrete_sequence=['green'])
+    
+    fig.update_layout(
+        title=f"{selected_numerical_plotly}",
+        xaxis_title=selected_numerical_plotly,
+        yaxis_title="Density"
+    )
+
+    st.plotly_chart(fig)
+
+# ---------------------- Gráfico de importancias ----------------------
+st.title("Importancias de características")
+
+# ---------------------- Preprocesamiento de datos ----------------------
+
+# Seleccionar las primeras 12 columnas y hacer una copia para entrenamiento
+train_df = df.iloc[:, :12].copy()
+
+# Definir las columnas categóricas excluyendo 'Age' y 'Hair Loss'
+categoricals = df.columns[(df.columns != "Age") & (df.columns != "Hair Loss")]
+
+# Codificar las columnas categóricas con LabelEncoder
+le = LabelEncoder()
+for i in categoricals[:-1]:  # Excluir la última columna categórica
+    train_df[i] = le.fit_transform(train_df[i])
+
+# Separar las características (X) y la etiqueta (y)
+X = train_df.iloc[:, :-1].values
+y = train_df.iloc[:, -1].values
+
+# Escalar las características numéricas
+scaler = MinMaxScaler()
+X = scaler.fit_transform(X)
+
+# Dividir los datos en entrenamiento y prueba
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42, test_size=0.2)
+
+# ---------------------- Modelo de RandomForest para importancias ----------------------
+
+# Crear y entrenar el modelo RandomForestClassifier
+forest = RandomForestClassifier(random_state=42)
+forest.fit(X_train, y_train)
+
+# Obtener las importancias de las características
+importances = forest.feature_importances_
+std = np.std([tree.feature_importances_ for tree in forest.estimators_], axis=0)
+
+# Crear un DataFrame con las importancias y su desviación estándar
+forest_importances = pd.Series(importances, index=train_df.columns[:-1])
+
+# ---------------------- Visualización de Importancias ----------------------
+
+# Graficar las importancias
+fig, ax = plt.subplots()
+forest_importances.plot.bar(yerr=std, ax=ax, color='green')
+ax.set_title("Feature Importances using MDI")
+ax.set_ylabel("Mean Decrease in Impurity")
+fig.tight_layout()
+
+# Mostrar el gráfico en Streamlit
+st.pyplot(fig)
+
+# ----------------------- PCA --------------------------------------------
+
+# Establecer el estándar de escalado para PCA
+scaler_pca = StandardScaler()
+scaled_df = scaler_pca.fit_transform(X_train)
+
+# Aplicar PCA
+pca = PCA()
+pca.fit(scaled_df)
+
+# Explicar la varianza para cada componente
+variance_ratio = pca.explained_variance_ratio_
+st.write("Explained variance ratio:", variance_ratio) # Varianza explicada
+
+# Graficar la varianza explicada por cada componente
+plt.figure(figsize=(10, 6))
+plt.bar(range(len(variance_ratio)), variance_ratio)
+plt.xticks(range(len(variance_ratio)))
+plt.ylabel('Variance')
+plt.xlabel('PCA Feature')
+plt.title('Variance Explained by Each PCA Component')
+st.pyplot(plt)
+
+# Cálculo de la varianza acumulada para decidir el número de componentes
+cumulative_variance_ratio = np.cumsum(variance_ratio)
+st.write("Cumulative explained variance:", cumulative_variance_ratio) # Varianza acumulada
+
+# Graficar la varianza acumulada explicada
+plt.figure(figsize=(10, 6))
+plt.plot(range(1, len(cumulative_variance_ratio) + 1), cumulative_variance_ratio, marker='o')
+plt.axhline(y=0.95, color='r', linestyle='--')  # Línea umbral para 95%
+plt.title('Cumulative Explained Variance by PCA Components')
+plt.xlabel('Number of Components')
+plt.ylabel('Cumulative Explained Variance')
+st.pyplot(plt)
+
+# Determinar el número de componentes para explicar el 95% de la varianza
+n_components_95 = np.argmax(cumulative_variance_ratio >= 0.95) + 1
+st.write(f'Número de componentes que explican al menos el 95% de la varianza: {n_components_95}')
+
+# Aplicar PCA con el número de componentes seleccionado
+pca = PCA(n_components=n_components_95)
+X_train_pca = pca.fit_transform(scaled_df)
+
+# Comprobar la forma de los datos transformados
+st.write("Shape of data after PCA:", X_train_pca.shape)
