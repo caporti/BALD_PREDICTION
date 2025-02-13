@@ -6,6 +6,7 @@ import streamlit as st
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 # Configuración del dispositivo
 device = torch.device("cpu")  # Usar CPU explícitamente
 
@@ -32,7 +33,7 @@ uploaded_file = st.file_uploader("Elige una imagen...", type=["jpg", "jpeg", "pn
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
-    st.image(image, caption="Imagen cargada", use_column_width=True)
+    st.image(image, caption="Imagen cargada", use_container_width=True)
     
     # Preprocesar la imagen
     image = transform(image).unsqueeze(0).to(device)
