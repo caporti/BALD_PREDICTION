@@ -85,9 +85,17 @@ st.markdown('</div>', unsafe_allow_html=True)
 # Sección de carga de imagen
 col1, col2 = st.columns([2, 1])
 with col1:
-    uploaded_file = st.file_uploader("Sube una imagen facial", 
-                                   type=["jpg", "jpeg", "png"],
-                                   help="La imagen debe mostrar claramente el cuero cabelludo")
+    st.markdown("### 📸 Opciones de Entrada")
+    input_method = st.radio("Selecciona el método de entrada:", 
+                          ["Subir imagen", "Tomar foto"])
+
+    if input_method == "Subir imagen":
+        uploaded_file = st.file_uploader("Sube una imagen facial", 
+                                       type=["jpg", "jpeg", "png"],
+                                       help="La imagen debe mostrar claramente el cuero cabelludo")
+    else:
+        uploaded_file = st.camera_input("Toma una foto de tu cuero cabelludo",
+                                       help="Asegúrate de tener buena iluminación y enfoque")
 
 # Sección de visualización de ejemplo
 with col2:
@@ -100,6 +108,12 @@ if uploaded_file is not None:
     try:
         # Cargar y mostrar imagen
         image = Image.open(uploaded_file)
+        
+        # Validación de tamaño de imagen
+        if image.size[0] < 224 or image.size[1] < 224:
+            st.warning("⚠️ La imagen es demasiado pequeña. Por favor, sube una imagen de mayor resolución.")
+            st.stop()
+        
         st.markdown("---")
         st.markdown("### 🖼️ Imagen Analizada")
         st.image(image, caption="Imagen cargada", use_container_width=True)
@@ -115,13 +129,11 @@ if uploaded_file is not None:
                 _, predicted = torch.max(outputs, 1)
                 probabilities = F.softmax(outputs, dim=1)
                 
-                # Mapear el índice a la clase 
-                class_names = ["Calvo", "No Calvo"] 
+                # Mapear el índice a la clase
+                class_names = ["Calvo", "No Calvo"]
                 result = class_names[predicted.item()]
-                
-                # Invertir las probabilidades
-                prob_bald = probabilities[0][0].item()  
-                prob_not_bald = probabilities[0][1].item()  
+                prob_bald = probabilities[0][0].item()
+                prob_not_bald = probabilities[0][1].item()
         
         # Mostrar resultados
         st.markdown("---")
@@ -145,7 +157,7 @@ if uploaded_file is not None:
         # Recomendaciones
         st.markdown("---")
         st.markdown("### 💡 Recomendaciones")
-        if predicted.item() == 1:
+        if predicted.item() == 0:
             st.markdown("""
             - Consulta con un especialista en salud capilar
             - Considera tratamientos preventivos
