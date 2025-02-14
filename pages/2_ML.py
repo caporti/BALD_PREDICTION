@@ -2,20 +2,68 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+from PIL import Image
 
+# Configuración de página
+st.set_page_config(
+    page_title="BaldAI - Predictor Capilar",
+    page_icon="🧑🦲",
+    layout="wide"
+)
 
-# Cargar el modelo y el escalador
-with open("modelo_calvicie.pkl", "rb") as f:
-    data = pickle.load(f)
+# CSS personalizado
+st.markdown("""
+<style>
+    :root {
+        --primary: #2ecc71;
+        --secondary: #3498db;
+        --accent: #e74c3c;
+    }
+    
+    .header {
+        padding: 2rem 0;
+        border-bottom: 3px solid var(--primary);
+        margin-bottom: 2rem;
+    }
+    
+    .input-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin: 1rem 0;
+    }
+    
+    .prediction-card {
+        padding: 2rem;
+        border-radius: 15px;
+        margin: 2rem 0;
+        transition: all 0.3s ease;
+    }
+    
+    .risk-high {
+        background: #f8d7da;
+        border: 2px solid #721c24;
+    }
+    
+    .risk-low {
+        background: #d4edda;
+        border: 2px solid #155724;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-gb = data["modelo"]
-sc = data["escalador"]
+# Cargar modelo y escalador
+@st.cache_data
+def load_model():
+    with open("modelo_calvicie.pkl", "rb") as f:
+        data = pickle.load(f)
+    return data["modelo"], data["escalador"]
 
-# Columnas esperadas por el modelo
-columnas_modelo = sc.feature_names_in_
+gb, sc = load_model()
 
-# Mapas de conversión español-inglés
-map_stress = {"Bajo": 0, "Moderado": 1, "Alto": 2}  # Convertimos a números
+# Mapeos de conversión
+map_stress = {"Bajo": 0, "Moderado": 1, "Alto": 2}
 map_yes_no = {"Sí": 1, "No": 0}
 
 map_medical_conditions = {
@@ -42,13 +90,13 @@ map_medications = {
     "Esteroides": "Steroids", "Antidepresivos": "Antidepressants", "Rogaine": "Rogaine",
     "Accutane": "Accutane", "Quimioterapia": "Chemotherapy", "Sin datos": "No Data"
 }
-
-# Función para preprocesar los datos
+# Función de preprocesamiento
 def preprocesar_datos(datos):
-    # Convertir valores categóricos a numéricos
+    # Convertir valores categóricos
     datos["Stress"] = datos["Stress"].map(map_stress)
     
-    columnas_yes_no = ["Genetics", "Hormonal Changes", "Poor Hair Care Habits ", "Environmental Factors", "Smoking", "Weight Loss "]
+    columnas_yes_no = ["Genetics", "Hormonal Changes", "Poor Hair Care Habits ", 
+                      "Environmental Factors", "Smoking", "Weight Loss "]
     for col in columnas_yes_no:
         datos[col] = datos[col].map(map_yes_no)
 
@@ -65,85 +113,115 @@ def preprocesar_datos(datos):
     datos['Age_group'] = pd.cut(datos['Age'], bins=bins, labels=labels, right=False)
     datos.drop("Age", axis=1, inplace=True)
 
-    # One-Hot Encoding asegurando las mismas categorías
+    # One-Hot Encoding
     columnas_categoricas = ["Medical Conditions", "Nutritional Deficiencies ", "Medications & Treatments"]
     datos = pd.get_dummies(datos, columns=columnas_categoricas)
 
-    # Asegurar columnas correctas y llenar valores faltantes con 0
-    datos = datos.reindex(columns=columnas_modelo, fill_value=0)
-
-    # **Convertir TODO a tipo float**
+    # Asegurar columnas correctas
+    datos = datos.reindex(columns=sc.feature_names_in_, fill_value=0)
     datos = datos.astype(float)
 
-    # **Aplicar transformación con el escalador**
-    datos = sc.transform(datos)
-
-    return datos
+    # Escalar datos
+    return sc.transform(datos)
 
 # Interfaz de usuario
-st.title("Predicción de Pérdida de Cabello")
-st.header("Ingresa los datos para predecir")
+st.markdown('<div class="header">', unsafe_allow_html=True)
+st.title("🧑🦲 BaldAI - Predictor de Salud Capilar")
+st.markdown("**Sistema de predicción de pérdida capilar mediante Machine Learning**")
+st.markdown('</div>', unsafe_allow_html=True)
 
-# Añadir imágenes en las esquinas
-col1, col2 = st.columns(2)
+# Sección de entrada de datos
+with st.container():
+    with st.form("prediccion_form"):
+        st.markdown("### 📋 Datos del Paciente")
+        
+        # Organizar inputs en columnas
+        c1, c2 = st.columns(2)
+        with c1:
+            age = st.slider("🎂 Edad", 18, 59, 30)
+            stress = st.select_slider("🧠 Nivel de estrés", options=["Bajo", "Moderado", "Alto"])
+            
+        with c2:
+            genetics = st.radio("🧬 Historial genético", ["Sí", "No"], horizontal=True)
+            smoking = st.toggle("🚬 Fumador actual")
+        
+        st.markdown("---")
+        st.markdown("### 🏥 Historial Clínico")
+        
+        # Tres columnas para sección médica
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            medical_conditions = st.selectbox(
+                "⚕️ Condiciones médicas",
+                list(map_medical_conditions.keys()),
+                index=len(map_medical_conditions)-1
+            )
+            
+        with m2:
+            nutritional_deficiencies = st.selectbox(
+                "🍎 Deficiencias nutricionales",
+                list(map_nutritional_deficiencies.keys()),
+                index=len(map_nutritional_deficiencies)-1
+            )
+            
+        with m3:
+            medications = st.selectbox(
+                "💊 Tratamientos médicos",
+                list(map_medications.keys()),
+                index=len(map_medications)-1
+            )
+        
+        # Botón de envío
+        st.markdown("---")
+        submitted = st.form_submit_button("🔮 Obtener Predicción", use_container_width=True)
 
-with col1:
-    st.image("media/calvo.jpg", width=300)  
-
-with col2:
-    st.image("media/pelo.jpg", width=300)
-
-stress = st.selectbox("🧠 Nivel de estrés", ["Bajo", "Moderado", "Alto"])
-age = st.number_input("🎂 Edad", min_value=0, max_value=100, value=30)
-
-medical_conditions = st.selectbox(
-    "⚕️ Condiciones médicas",
-    list(map_medical_conditions.keys())
-)
-
-nutritional_deficiencies = st.selectbox(
-    "🍎 Deficiencias nutricionales",
-    list(map_nutritional_deficiencies.keys())
-)
-
-medications = st.selectbox(
-    "💊 Medicamentos y tratamientos",
-    list(map_medications.keys())
-)
-
-genetics = st.selectbox("🧬 Genética", ["Sí", "No"])
-hormonal_changes = st.selectbox("🔄 Cambios hormonales", ["Sí", "No"])
-poor_hair_care = st.selectbox("🛁 Malos hábitos de cuidado del cabello", ["Sí", "No"])
-environmental_factors = st.selectbox("🌍 Factores ambientales", ["Sí", "No"])
-smoking = st.selectbox("🚬 Fumar", ["Sí", "No"])
-weight_loss = st.selectbox("⚖️ Pérdida de peso", ["Sí", "No"])
-
-# Predecir
-if st.button("Predecir"):
-    datos_usuario = pd.DataFrame({
-        "Stress": [stress], "Age": [age], 
-        "Medical Conditions": [medical_conditions],
-        "Nutritional Deficiencies ": [nutritional_deficiencies], 
-        "Medications & Treatments": [medications],
-        "Genetics": [genetics], "Hormonal Changes": [hormonal_changes], 
-        "Poor Hair Care Habits ": [poor_hair_care],
-        "Environmental Factors": [environmental_factors], 
-        "Smoking": [smoking], "Weight Loss ": [weight_loss]
-    })
-
-    # Preprocesar datos
+# Procesamiento y resultados
+if submitted:
     try:
+        # Crear DataFrame con los datos
+        datos_usuario = pd.DataFrame({
+            "Stress": [stress], "Age": [age], 
+            "Medical Conditions": [medical_conditions],
+            "Nutritional Deficiencies ": [nutritional_deficiencies], 
+            "Medications & Treatments": [medications],
+            "Genetics": [genetics], "Hormonal Changes": ["No"], 
+            "Poor Hair Care Habits ": ["No"],
+            "Environmental Factors": ["No"], 
+            "Smoking": ["Sí" if smoking else "No"], "Weight Loss ": ["No"]
+        })
+
+        # Preprocesar y predecir
         datos_procesados = preprocesar_datos(datos_usuario)
-
-        # Verificar si hay valores NaN antes de predecir
-        if np.isnan(datos_procesados).any():
-            st.error("Se encontraron valores faltantes en los datos procesados. Verifique las opciones seleccionadas.")
-        else:
-            prediccion = gb.predict(datos_procesados)
-            st.success(f"La predicción es: {'Pérdida de cabello' if prediccion[0] == 1 else 'No pérdida de cabello'}")
-
-            probabilidad = gb.predict_proba(datos_procesados)
-            st.write(f"Probabilidad de pérdida de cabello: {probabilidad[0][1]:.2f}")
-    
+        prediccion = gb.predict(datos_procesados)[0]
+        probabilidad = gb.predict_proba(datos_procesados)[0][1]
+        
+        # Mostrar resultados
+        risk_class = "risk-high" if prediccion == 1 else "risk-low"
+        emoji = "⚠️" if prediccion == 1 else "✅"
+        
+        st.markdown(f"""
+        <div class="prediction-card {risk_class}">
+            <h2>{emoji} Resultado de la Predicción</h2>
+            <p style="font-size: 1.5rem; margin: 1rem 0;">
+                Probabilidad de pérdida capilar: 
+                <strong>{probabilidad*100:.1f}%</strong>
+            </p>
+            <div style="background: {'#f5b7b1' if prediccion == 1 else '#abebc6'}; 
+                     height: 20px; border-radius: 10px; margin: 1rem 0;">
+                <div style="width: {probabilidad*100}%; 
+                          background: {'#e74c3c' if prediccion == 1 else '#2ecc71'}; 
+                          height: 100%; border-radius: 10px;"></div>
+            </div>
+            <h3>🔍 Factores Clave:</h3>
+            <ul>
+                <li>Edad: {age} años</li>
+                <li>Historial genético: {genetics}</li>
+                <li>Nivel de estrés: {stress}</li>
+                <li>Condición médica principal: {medical_conditions}</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
     except Exception as e:
-        st.error(f"Error en el procesamiento: {e}")
+        st.error(f"🚨 Error en el procesamiento: {str(e)}")
+        st.info("ℹ️ Verifique que todos los campos estén correctamente completados")
