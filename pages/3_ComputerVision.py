@@ -7,6 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import numpy as np
+import requests
+from io import BytesIO
 
 # Configuración de la página
 st.set_page_config(
@@ -15,7 +17,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# CSS personalizado
+# CSS personalizado (mantener el mismo estilo)
 st.markdown("""
 <style>
     :root {
@@ -76,6 +78,14 @@ transform = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
+# Función para obtener datos de LinkedIn
+def fetch_profile_data(url):
+    api_endpoint = 'https://nubela.co/proxycurl/api/v2/linkedin'
+    api_key = '1bnj5bMMVRtmJXAJTxYaoQ'
+    headers = {'Authorization': 'Bearer ' + api_key}
+    response = requests.get(api_endpoint, params={'url': url, 'skills': 'include'}, headers=headers)
+    return response.json() if response.status_code == 200 else None
+
 # Interfaz de usuario
 st.markdown('<div class="header">', unsafe_allow_html=True)
 st.title("📷 BaldAI - Detección de Calvicie por Imagen")
@@ -87,15 +97,20 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.markdown("### 📸 Opciones de Entrada")
     input_method = st.radio("Selecciona el método de entrada:", 
-                          ["Subir imagen", "Tomar foto"])
+                          ["Subir imagen", "Tomar foto", "URL de LinkedIn"])
+
+    uploaded_file = None
+    linkedin_url = None
 
     if input_method == "Subir imagen":
         uploaded_file = st.file_uploader("Sube una imagen facial", 
                                        type=["jpg", "jpeg", "png"],
                                        help="La imagen debe mostrar claramente el cuero cabelludo")
-    else:
+    elif input_method == "Tomar foto":
         uploaded_file = st.camera_input("Toma una foto de tu cuero cabelludo",
                                        help="Asegúrate de tener buena iluminación y enfoque")
+    else:
+        linkedin_url = st.text_input("Pega una URL de perfil de LinkedIn")
 
 # Sección de visualización de ejemplo
 with col2:
@@ -104,22 +119,18 @@ with col2:
     st.image(example_img, use_container_width=True)
 
 # Procesamiento de la imagen
-if uploaded_file is not None:
+def process_and_predict(image):
     try:
-        # Cargar y mostrar imagen
-        image = Image.open(uploaded_file)
-        
         # Validación de tamaño de imagen
         if image.size[0] < 224 or image.size[1] < 224:
             st.warning("⚠️ La imagen es demasiado pequeña. Por favor, sube una imagen de mayor resolución.")
-            st.stop()
-        
+            return
+
         st.markdown("---")
         st.markdown("### 🖼️ Imagen Analizada")
         st.image(image, caption="Imagen cargada", use_container_width=True)
         
         # Preprocesar la imagen
-        st.markdown("### 🔍 Procesando imagen...")
         with st.spinner("Analizando características capilares..."):
             image_tensor = transform(image).unsqueeze(0).to(device)
             
@@ -139,7 +150,6 @@ if uploaded_file is not None:
         st.markdown("---")
         st.markdown("### 📊 Resultados del Análisis")
 
-        # Tarjeta de predicción sin fondo blanco
         st.markdown(f"""
         <div class="prediction-card" style="background: none; box-shadow: none;">
             <h2>Predicción: {result}</h2>
@@ -173,3 +183,23 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"🚨 Error en el procesamiento: {str(e)}")
         st.info("ℹ️ Asegúrate de subir una imagen válida y nítida del cuero cabelludo")
+
+# Lógica principal de procesamiento
+if uploaded_file is not None:
+    image = Image.open(uploaded_file)
+    process_and_predict(image)
+elif linkedin_url:
+    try:
+        with st.spinner("Obteniendo datos de LinkedIn..."):
+            profile_data = fetch_profile_data(linkedin_url)
+            if profile_data and "profile_pic_url" in profile_data:
+                response = requests.get(profile_data["profile_pic_url"])
+                if response.status_code == 200:
+                    image = Image.open(BytesIO(response.content))
+                    process_and_predict(image)
+                else:
+                    st.error("Error al descargar la imagen del perfil")
+            else:
+                st.error("Perfil de LinkedIn no encontrado o sin imagen")
+    except Exception as e:
+        st.error(f"Error al procesar perfil de LinkedIn: {str(e)}")
