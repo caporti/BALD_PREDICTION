@@ -27,7 +27,7 @@ st.markdown('<div class="header">', unsafe_allow_html=True)
 st.title("🧑🦲 BaldAI - Sistema de Detección de Calvicie")
 st.markdown("""
 **¡Bienvenido a nuestra solución integral para la detección temprana de alopecia!**  
-*Desarrollado por Nacho, Jorge y Carlos para el Máster en Inteligencia Artificial*
+*Desarrollado por Nacho Martínez, Jorge Moltó y Carlos Portilla para el Máster en Inteligencia Artificial*
 """)
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -57,32 +57,30 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # Tarjetas de navegación
 col1, col2, col3 = st.columns(3)
+
 with col1:
-    st.markdown('<div class="card" style="background:#e8f5e9;">', unsafe_allow_html=True)
-    st.subheader("📊 Análisis Exploratorio")
-    st.write("Descubre los patrones ocultos en los datos de salud capilar")
+    if st.button("📊 Análisis Exploratorio"):
+        st.session_state["page"] = "pages/1_eda.py"
+        st.switch_page("pages/1_eda.py")
     st.image(Image.open("media/datospelo.jpg"), use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
-    st.markdown('<div class="card" style="background:#fff3e0;">', unsafe_allow_html=True)
-    st.subheader("🤖 Predicción ML")
-    st.write("Modelo predictivo basado en datos clínicos y hábitos")
+    if st.button("🤖 Predicción ML"):
+        st.session_state["page"] = "pages/2_ML.py"
+        st.switch_page("pages/2_ML.py")
     st.image(Image.open("media/prediccion.jpg"), use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 with col3:
-    st.markdown('<div class="card" style="background:#fbe9e7;">', unsafe_allow_html=True)
-    st.subheader("📸 Diagnóstico por Imagen")
-    st.write("Clasificación mediante Redes Neuronales Convolucionales")
+    if st.button("📸 Diagnóstico por Imagen"):
+        st.session_state["page"] = "pages/3_ComputerVision.py"
+        st.switch_page("pages/3_ComputerVision.py")
     st.image(Image.open("media/calvoespejo.jpg"), use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # Sección del equipo
 st.markdown("""
 <div class="section">
     <h3>👥 Nuestro Equipo</h3>
-    <div class="team">Carlos · Nacho · Jorge</div>
+    <div class="team">Carlos Portilla · Nacho Martínez· Jorge Moltó</div>
     <p>Estudiantes del Máster en Inteligencia Artificial especializados en salud capilar</p>
     <img src="https://images.unsplash.com/photo-1552581234-26160f608093" style="width:100%; height:300px; object-fit:cover;">
 </div>

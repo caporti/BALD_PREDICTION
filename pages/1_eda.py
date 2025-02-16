@@ -138,19 +138,51 @@ with st.container():
 with st.container():
     st.markdown("## 🔗 Relaciones entre Variables")
     
-    col1, col2 = st.columns([2, 3])
-    with col1:
-        x_var = st.selectbox("Variable X:", df.select_dtypes(include=np.number).columns)
-        y_var = st.selectbox("Variable Y:", df.select_dtypes(include=np.number).columns)
-        hue_var = st.selectbox("Variable de color:", df.select_dtypes(include='object').columns)
+    categorical_vars = [col for col in df.select_dtypes(include='object').columns if col != 'Hair Loss']
+    selected_cat = st.selectbox("Selecciona variable categórica:", categorical_vars)
     
-    with col2:
-        fig = px.scatter(df, x=x_var, y=y_var, color=hue_var,
-                       trendline="lowess", 
-                       color_discrete_sequence=px.colors.qualitative.Pastel)
-        fig.update_layout(title=f"{x_var} vs {y_var} | Color: {hue_var}",
-                        height=500)
-        st.plotly_chart(fig, use_container_width=True)
+    total_casos = len(df)
+    counts = df.groupby([selected_cat, 'Hair Loss']).size().unstack(fill_value=0)
+    percentages = (counts / counts.sum(axis=1).values.reshape(-1,1) * 100).round(1)
+    
+    fig = px.histogram(
+        df, 
+        x=selected_cat, 
+        color='Hair Loss',
+        barmode='group',
+        color_discrete_sequence=px.colors.qualitative.Pastel,
+        title=f"Distribución de Hair Loss por {selected_cat}",
+        labels={'count': 'Casos', 'Hair Loss': 'Pérdida Capilar'},
+        category_orders={selected_cat: counts.sum(axis=1).sort_values(ascending=False).index.tolist()}
+    )
+    
+    fig.update_xaxes(
+        categoryorder='total descending',
+        title=selected_cat
+    )
+    
+    fig.update_traces(
+        hovertemplate=(
+            "<b>%{x}</b><br>"
+            "Categoría: %{customdata[0]}<br>"
+            "Casos: %{y} (%{customdata[1]}%)"
+        ),
+        customdata=np.stack([
+            counts.loc[fig.data[0].x].values.flatten(),
+            percentages.loc[fig.data[0].x].values.flatten()
+        ], axis=-1)
+    )
+    
+    fig.update_layout(
+        yaxis_title="Número de Casos",
+        legend_title="Pérdida Capilar",
+        hovermode="x unified",
+        height=500,
+        xaxis={'type': 'category'}
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
 
 # ---------------------- Feature Importance ----------------------
 with st.expander("📈 Importancia de Variables (Machine Learning)"):
