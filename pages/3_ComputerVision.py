@@ -81,7 +81,7 @@ transform = transforms.Compose([
 # Función para obtener datos de LinkedIn
 def fetch_profile_data(url):
     api_endpoint = 'https://nubela.co/proxycurl/api/v2/linkedin'
-    api_key = '1bnj5bMMVRtmJXAJTxYaoQ'
+    api_key = 'h_r152QoCAlcDzxX1v0Lew'
     headers = {'Authorization': 'Bearer ' + api_key}
     response = requests.get(api_endpoint, params={'url': url, 'skills': 'include'}, headers=headers)
     return response.json() if response.status_code == 200 else None
