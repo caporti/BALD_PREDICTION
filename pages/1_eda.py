@@ -141,9 +141,17 @@ with st.container():
     categorical_vars = [col for col in df.select_dtypes(include='object').columns if col != 'Hair Loss']
     selected_cat = st.selectbox("Selecciona variable categórica:", categorical_vars)
     
-    total_casos = len(df)
+    # Calcular distribución con ordenamiento correcto
     counts = df.groupby([selected_cat, 'Hair Loss']).size().unstack(fill_value=0)
-    percentages = (counts / counts.sum(axis=1).values.reshape(-1,1) * 100).round(1)
+    total_por_categoria = counts.sum(axis=1)
+    
+    # Ordenar por frecuencia total descendente
+    counts = counts.loc[total_por_categoria.sort_values(ascending=False).index]
+    percentages = (counts.div(total_por_categoria, axis=0) * 100).round(1)
+    
+    # Preparar datos para Plotly
+    categories = counts.index.tolist()
+    hair_loss_categories = counts.columns.tolist()
     
     fig = px.histogram(
         df, 
@@ -153,32 +161,33 @@ with st.container():
         color_discrete_sequence=px.colors.qualitative.Pastel,
         title=f"Distribución de Hair Loss por {selected_cat}",
         labels={'count': 'Casos', 'Hair Loss': 'Pérdida Capilar'},
-        category_orders={selected_cat: counts.sum(axis=1).sort_values(ascending=False).index.tolist()}
+        category_orders={
+            selected_cat: categories,
+            'Hair Loss': hair_loss_categories
+        }
     )
     
-    fig.update_xaxes(
-        categoryorder='total descending',
-        title=selected_cat
-    )
-    
-    fig.update_traces(
-        hovertemplate=(
-            "<b>%{x}</b><br>"
-            "Categoría: %{customdata[0]}<br>"
-            "Casos: %{y} (%{customdata[1]}%)"
-        ),
-        customdata=np.stack([
-            counts.loc[fig.data[0].x].values.flatten(),
-            percentages.loc[fig.data[0].x].values.flatten()
+    # Configurar hover con datos precisos
+    for i, hair_loss in enumerate(hair_loss_categories):
+        fig.data[i].customdata = np.stack([
+            counts[hair_loss].values,
+            percentages[hair_loss].values
         ], axis=-1)
-    )
+        
+        fig.data[i].hovertemplate = (
+            "<b>%{x}</b><br>"
+            "Categoría: %{fullData.name}<br>"
+            "Casos: %{customdata[0]}<br>"
+            "Porcentaje: %{customdata[1]}%"
+        )
     
     fig.update_layout(
+        xaxis_title=selected_cat,
         yaxis_title="Número de Casos",
         legend_title="Pérdida Capilar",
         hovermode="x unified",
         height=500,
-        xaxis={'type': 'category'}
+        xaxis={'type': 'category', 'categoryorder':'total descending'}
     )
     
     st.plotly_chart(fig, use_container_width=True)
